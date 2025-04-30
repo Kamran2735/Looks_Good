@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import AudioVisualizer from './AudioVisualizer'
+import AudioVisualizer from './AudioResponsiveWaves'
+import MusicInfoDisplay from './MusicInfoDisplay'
+
 
 export default function UnifiedCarousel() {
   const [isPaused, setIsPaused] = useState(false)
@@ -25,13 +27,74 @@ export default function UnifiedCarousel() {
   const sourceNodeRef = useRef(null)
 
   const content = [
-    { thumbnail: '/Thumbnails/1.svg', video: '/Videos/1.mp4', brand: { name: 'Brand 1', logo: '/Brands/1.svg', color: '#000000' } },
-    { thumbnail: '/Thumbnails/2.svg', video: '/Videos/2.mp4', brand: { name: 'Brand 2', logo: '/Brands/2.svg', color: '#000000' } },
-    { thumbnail: '/Thumbnails/3.svg', video: '/Videos/3.mp4', brand: { name: 'Brand 3', logo: '/Brands/3.svg', color: '#000000' } },
-    { thumbnail: '/Thumbnails/4.svg', video: '/Videos/4.mp4', brand: { name: 'Brand 4', logo: '/Brands/4.svg', color: '#000000' } },
-    { thumbnail: '/Thumbnails/5.svg', video: '/Videos/5.mp4', brand: { name: 'Brand 5', logo: '/Brands/5.svg', color: '#000000' } },
-    { thumbnail: '/Thumbnails/6.svg', video: '/Videos/6.mp4', brand: { name: 'Brand 6', logo: '/Brands/6.svg', color: '#000000' } },
+    {
+      thumbnail: '/Thumbnails/1.svg',
+      video: '/Videos/1.mp4',
+      brand: {
+        name: 'Brand 1',
+        logo: '/Brands/1.svg',
+        color: '#000000',
+        title: 'Introducing the Groove Series',
+        description: 'Brand 1 is known for redefining sound design with immersive sonic textures.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/2.svg',
+      video: '/Videos/2.mp4',
+      brand: {
+        name: 'Brand 2',
+        logo: '/Brands/2.svg',
+        color: '#000000',
+        title: 'Future Beats Collection',
+        description: 'Brand 2 curates the finest future bass tracks for the next-gen listener.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/3.svg',
+      video: '/Videos/3.mp4',
+      brand: {
+        name: 'Brand 3',
+        logo: '/Brands/3.svg',
+        color: '#000000',
+        title: 'Retro Rhythms',
+        description: 'Bringing back the 80s funk in high-fidelity – that’s the Brand 3 promise.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/4.svg',
+      video: '/Videos/4.mp4',
+      brand: {
+        name: 'Brand 4',
+        logo: '/Brands/4.svg',
+        color: '#000000',
+        title: 'Bassline Revolution',
+        description: 'A bold brand that builds booming basslines for dancefloor dominance.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/5.svg',
+      video: '/Videos/5.mp4',
+      brand: {
+        name: 'Brand 5',
+        logo: '/Brands/5.svg',
+        color: '#000000',
+        title: 'Synthwave Dreams',
+        description: 'Brand 5 layers neon melodies with dreamy soundscapes for chill nights.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/6.svg',
+      video: '/Videos/6.mp4',
+      brand: {
+        name: 'Brand 6',
+        logo: '/Brands/6.svg',
+        color: '#000000',
+        title: 'Drum Machine Dynasty',
+        description: 'Precision percussion. Timeless beats. Brand 6 leads the rhythm renaissance.'
+      }
+    }
   ]
+  
 
   const repeatedContent = [...Array(4)].flatMap(() => content)
   const baseAnimationDuration = 120
@@ -162,10 +225,13 @@ export default function UnifiedCarousel() {
         <source src="/bg.mp4" type="video/mp4" />
       </video>
 
-      {/* Audio Visualizer Component */}
+      {/* Audio Visualizer Component with Logo */}
       <AudioVisualizer 
         isActive={isVisualizerActive} 
         analyser={analyserRef.current}
+        isVideoPlaying={isVideoPlaying}
+        isVideoSelected={selectedIndex !== -1}
+        intensity={1.5}
       />
 
       {/* Top Thumbnail Carousel */}
@@ -230,24 +296,6 @@ export default function UnifiedCarousel() {
         )}
       </div>
 
-      {/* Center Logo Area */}
-      <div className="relative h-[60%] z-10">
-        {/* Center Logo */}
-        <div
-          className={`absolute left-1/2 top-[20%] transform -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform duration-500 ease-in-out animate-spin-slow ${
-            selectedIndex !== -1 ? 'scale-125 drop-shadow-[0_0_30px_#06ae78]' : 'scale-100 drop-shadow-[0_8px_15px_rgba(0,0,0,0.4)]'
-          }`}
-          style={{
-            width: '10rem',
-            height: '10rem',
-            animationPlayState: selectedIndex !== -1 && isVideoPlaying ? 'running' : 'paused',
-            zIndex: 20
-          }}
-        >
-          <img src="/logo-nobg.png" alt="Center Logo" className="w-full h-full object-contain" />
-        </div>
-      </div>
-
       {/* Brand Carousel */}
       <div className="h-[10%] w-full mb-4 relative z-10">
         <div className="relative" ref={brandCarouselRef}>
@@ -284,6 +332,19 @@ export default function UnifiedCarousel() {
           </div>
         </div>
       </div>
+      {/* Dynamic Brand Info Display */}
+      {selectedIndex !== -1 && isVideoPlaying && (
+  <div className="absolute bottom-44 left-1/2 transform -translate-x-1/2 z-40">
+    <MusicInfoDisplay
+      key={selectedIndex} // 👈 force remount when selectedIndex changes
+      title={content[selectedIndex].brand.title}
+      brandName={content[selectedIndex].brand.name}
+      brandDescription={content[selectedIndex].brand.description}
+    />
+  </div>
+)}
+
+
 
       {/* Animation styles */}
       <style jsx>{`
@@ -295,7 +356,7 @@ export default function UnifiedCarousel() {
           animation: brand-carousel ${baseAnimationDuration}s linear infinite;
         }
 
-        @keyframes thumbnail-carousel {
+@keyframes thumbnail-carousel {
           0% {
             transform: translateX(0);
           }
@@ -311,19 +372,6 @@ export default function UnifiedCarousel() {
           100% {
             transform: translateX(-${dimensions.brandSetWidth}px);
           }
-        }
-
-        @keyframes spin {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-
-        .animate-spin-slow {
-          animation: spin 8s linear infinite;
         }
 
         @keyframes glow {

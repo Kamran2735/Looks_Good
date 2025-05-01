@@ -255,6 +255,9 @@ export default function MultiLayerAudioWaves({ isActive, analyser, logoSrc = '/l
       if (waveRef3.current) waveRef3.current.setAttribute('d', wave3Path)
       if (waveOutline3.current) waveOutline3.current.setAttribute('d', wave3OutlinePath)
 
+      // Update dynamic gradient animations based on audio data
+      updateDynamicGradients(audioData)
+
       // Original logo animation logic
       const sampleHeights = samplePoints.map(x => {
         const segment = x < 660
@@ -333,46 +336,175 @@ export default function MultiLayerAudioWaves({ isActive, analyser, logoSrc = '/l
         }
       })
     }
+    
+    // New function to update dynamic gradients based on audio data
+    function updateDynamicGradients(audioData) {
+      // Get all animated gradient stops
+      const gradientStops = document.querySelectorAll('.animated-stop')
+      
+      // Calculate gradient animation parameters based on audio
+      const bassOffset = audioData.bass * 30
+      const midOffset = audioData.mid * 20
+      const trebleOffset = audioData.treble * 10
+      const transientBoost = audioData.transients * 0.5
+      
+      // Update each gradient's position, opacity and other properties
+      gradientStops.forEach((stop, index) => {
+        const gradientType = stop.getAttribute('data-wave-type')
+        
+        if (gradientType === 'main') {
+          // Main wave (top one) - animate based on overall and transients
+          const animationSpeed = 0.5 + audioData.overall * 2 + audioData.transients
+          const newOffset = (audioDataRef.current.time * animationSpeed * 10) % 200
+          const newOpacity = 0.7 + audioData.overall * 0.3 + audioData.transients * 0.5
+          
+          // Update gradient stop properties
+          stop.setAttribute('offset', `${(index * 20 + newOffset) % 100}%`)
+          stop.setAttribute('stop-opacity', Math.min(1, newOpacity))
+        }
+        else if (gradientType === 'bass') {
+          // Bass wave - more influenced by bass frequencies
+          const animationSpeed = 0.3 + audioData.bass * 1.5
+          const newOffset = (audioDataRef.current.time * animationSpeed * 8) % 200
+          const newOpacity = 0.5 + audioData.bass * 0.5
+          
+          stop.setAttribute('offset', `${(index * 25 + newOffset + bassOffset) % 100}%`)
+          stop.setAttribute('stop-opacity', Math.min(1, newOpacity))
+        }
+        else if (gradientType === 'mid') {
+          // Mid wave - more influenced by mid frequencies
+          const animationSpeed = 0.4 + audioData.mid * 1.3
+          const newOffset = (audioDataRef.current.time * animationSpeed * 12) % 200
+          const newOpacity = 0.4 + audioData.mid * 0.6
+          
+          stop.setAttribute('offset', `${(index * 15 + newOffset + midOffset) % 100}%`)
+          stop.setAttribute('stop-opacity', Math.min(1, newOpacity))
+        }
+        else if (gradientType === 'treble') {
+          // Treble wave - more influenced by treble frequencies
+          const animationSpeed = 0.6 + audioData.treble * 2
+          const newOffset = (audioDataRef.current.time * animationSpeed * 15) % 200
+          const newOpacity = 0.3 + audioData.treble * 0.7
+          
+          stop.setAttribute('offset', `${(index * 10 + newOffset + trebleOffset) % 100}%`)
+          stop.setAttribute('stop-opacity', Math.min(1, newOpacity))
+        }
+      })
+    }
   }, [analyser, isActive])
 
   return (
     <div className="absolute bottom-0 left-0 w-full h-[550px] overflow-hidden z-0">
       <svg
         className="w-full h-full"
-        viewBox="0 0 1320 550"
+        viewBox="0 0 1320 450"
         preserveAspectRatio="xMidYMid slice"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Define glowing effect for all waves */}
+        {/* Define dynamic gradient effects for all waves */}
         <defs>
+          {/* Dynamic animated gradient for main wave */}
+          <linearGradient id="mainWaveGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1320" y2="0">
+            <stop className="animated-stop" data-wave-type="main" offset="0%" stopColor="#07c98a" stopOpacity="0.8" />
+            <stop className="animated-stop" data-wave-type="main" offset="20%" stopColor="#0ef4a1" stopOpacity="1" />
+            <stop className="animated-stop" data-wave-type="main" offset="40%" stopColor="#07c98a" stopOpacity="0.6" />
+            <stop className="animated-stop" data-wave-type="main" offset="60%" stopColor="#0ef4a1" stopOpacity="0.9" />
+            <stop className="animated-stop" data-wave-type="main" offset="80%" stopColor="#07c98a" stopOpacity="0.7" />
+            <stop className="animated-stop" data-wave-type="main" offset="100%" stopColor="#0ef4a1" stopOpacity="1" />
+          </linearGradient>
+          
+          {/* Main wave glow effect */}
           <filter id="glow1" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
-          <filter id="glow2" x="-20%" y="-20%" width="140%" height="140%">
+          
+          {/* Dynamic animated gradient for bass wave */}
+          <linearGradient id="bassWaveGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1320" y2="0">
+            <stop className="animated-stop" data-wave-type="bass" offset="0%" stopColor="#3ae5c0" stopOpacity="0.7" />
+            <stop className="animated-stop" data-wave-type="bass" offset="25%" stopColor="#58fff2" stopOpacity="0.9" />
+            <stop className="animated-stop" data-wave-type="bass" offset="50%" stopColor="#3ae5c0" stopOpacity="0.5" />
+            <stop className="animated-stop" data-wave-type="bass" offset="75%" stopColor="#58fff2" stopOpacity="0.8" />
+            <stop className="animated-stop" data-wave-type="bass" offset="100%" stopColor="#3ae5c0" stopOpacity="0.7" />
+          </linearGradient>
+          
+          {/* Bass wave glow effect */}
+          <filter id="glowBass" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
-          <filter id="blackGlow" x="-20%" y="-20%" width="140%" height="140%">
+          
+          {/* Dynamic animated gradient for mid wave */}
+          <linearGradient id="midWaveGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1320" y2="0">
+            <stop className="animated-stop" data-wave-type="mid" offset="0%" stopColor="#00ffe5" stopOpacity="0.6" />
+            <stop className="animated-stop" data-wave-type="mid" offset="20%" stopColor="#45e8ff" stopOpacity="0.8" />
+            <stop className="animated-stop" data-wave-type="mid" offset="40%" stopColor="#00ffe5" stopOpacity="0.4" />
+            <stop className="animated-stop" data-wave-type="mid" offset="60%" stopColor="#45e8ff" stopOpacity="0.7" />
+            <stop className="animated-stop" data-wave-type="mid" offset="80%" stopColor="#00ffe5" stopOpacity="0.5" />
+            <stop className="animated-stop" data-wave-type="mid" offset="100%" stopColor="#45e8ff" stopOpacity="0.8" />
+          </linearGradient>
+          
+          {/* Mid wave glow effect */}
+          <filter id="glowMid" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          
+          {/* Dynamic animated gradient for treble wave */}
+          <linearGradient id="trebleWaveGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1320" y2="0">
+            <stop className="animated-stop" data-wave-type="treble" offset="0%" stopColor="#65f5d5" stopOpacity="0.5" />
+            <stop className="animated-stop" data-wave-type="treble" offset="16%" stopColor="#a0ffed" stopOpacity="0.7" />
+            <stop className="animated-stop" data-wave-type="treble" offset="33%" stopColor="#65f5d5" stopOpacity="0.3" />
+            <stop className="animated-stop" data-wave-type="treble" offset="50%" stopColor="#a0ffed" stopOpacity="0.6" />
+            <stop className="animated-stop" data-wave-type="treble" offset="66%" stopColor="#65f5d5" stopOpacity="0.4" />
+            <stop className="animated-stop" data-wave-type="treble" offset="83%" stopColor="#a0ffed" stopOpacity="0.7" />
+            <stop className="animated-stop" data-wave-type="treble" offset="100%" stopColor="#65f5d5" stopOpacity="0.5" />
+          </linearGradient>
+          
+          {/* Treble wave glow effect */}
+          <filter id="glowTreble" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
         
-{/* Original wave with its outline */}
-<path ref={flatWaveRef} fill="#07c98a" opacity="0.2" />
-<path ref={reactiveOutlineRef} fill="none" stroke="#07c98a" strokeWidth="1" opacity="0.6" filter="url(#glow1)" />
+        {/* Original wave with its outline - now using dynamic gradient */}
+        <path ref={flatWaveRef} fill="#07c98a" opacity="0.2" />
+        <path 
+          ref={reactiveOutlineRef} 
+          fill="none" 
+          stroke="url(#mainWaveGradient)" 
+          strokeWidth="1.5" 
+          filter="url(#glow1)" 
+        />
 
-{/* Aurora-inspired waves (removed black/gray, replaced with teal & cyan gradients) */}
-<path ref={waveRef1} fill="#3ae5c0" opacity="0.12" />
-<path ref={waveOutline1} fill="none" stroke="#3ae5c0" strokeWidth="1" opacity="0.5" filter="url(#glow1)" />
+        {/* Aurora-inspired waves with dynamic gradients */}
+        <path ref={waveRef1} fill="#3ae5c0" opacity="0.12" />
+        <path 
+          ref={waveOutline1} 
+          fill="none" 
+          stroke="url(#bassWaveGradient)" 
+          strokeWidth="1.5" 
+          filter="url(#glowBass)" 
+        />
 
-<path ref={waveRef2} fill="#00ffe5" opacity="0.08" />
-<path ref={waveOutline2} fill="none" stroke="#00ffe5" strokeWidth="1" opacity="0.4" filter="url(#glow1)" />
+        <path ref={waveRef2} fill="#00ffe5" opacity="0.08" />
+        <path 
+          ref={waveOutline2} 
+          fill="none" 
+          stroke="url(#midWaveGradient)" 
+          strokeWidth="1.5" 
+          filter="url(#glowMid)" 
+        />
 
-<path ref={waveRef3} fill="#65f5d5" opacity="0.08" />
-<path ref={waveOutline3} fill="none" stroke="#65f5d5" strokeWidth="1" opacity="0.4" filter="url(#glow1)" />
-
+        <path ref={waveRef3} fill="#65f5d5" opacity="0.08" />
+        <path 
+          ref={waveOutline3} 
+          fill="none" 
+          stroke="url(#trebleWaveGradient)" 
+          strokeWidth="1.5" 
+          filter="url(#glowTreble)" 
+        />
         
         {/* Logo */}
         <image

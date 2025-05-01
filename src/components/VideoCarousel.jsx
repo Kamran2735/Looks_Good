@@ -334,7 +334,7 @@ export default function UnifiedCarousel() {
       </div>
       {/* Dynamic Brand Info Display */}
       {selectedIndex !== -1 && isVideoPlaying && (
-  <div className="absolute bottom-44 left-1/2 transform -translate-x-1/2 z-40">
+  <div className="absolute bottom-30 left-1/2 transform -translate-x-1/2 z-8">
     <MusicInfoDisplay
       key={selectedIndex} // 👈 force remount when selectedIndex changes
       title={content[selectedIndex].brand.title}
@@ -390,3 +390,6 @@ export default function UnifiedCarousel() {
     </div>
   )
 }
+
+
+

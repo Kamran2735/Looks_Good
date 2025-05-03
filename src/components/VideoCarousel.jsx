@@ -19,6 +19,11 @@ export default function UnifiedCarousel() {
   // Audio visualizer states
   const [isVisualizerActive, setIsVisualizerActive] = useState(false)
   
+  // Slot machine states
+  const [isSpinning, setIsSpinning] = useState(false)
+  const [slotPosition, setSlotPosition] = useState(0)
+  const slotReelRef = useRef(null)
+  
   const thumbnailCarouselRef = useRef(null)
   const brandCarouselRef = useRef(null)
   // Audio related refs
@@ -57,7 +62,7 @@ export default function UnifiedCarousel() {
         logo: '/Brands/3.svg',
         color: '#000000',
         title: 'Retro Rhythms',
-        description: 'Bringing back the 80s funk in high-fidelity – that’s the Brand 3 promise.'
+        description: 'Bringing back the 80s funk in high-fidelity – thats the Brand 3 promise.'
       }
     },
     {
@@ -95,15 +100,21 @@ export default function UnifiedCarousel() {
     }
   ]
   
-
+  // Create a much longer array for slot machine effect
+  const slotContent = [...Array(25)].flatMap(() => content)
   const repeatedContent = [...Array(4)].flatMap(() => content)
+  
+  // Calculate the exact center position for slot machine items
+  const centerPositionItem = Math.floor(slotContent.length / 2)
   const baseAnimationDuration = 120
+  // Define a constant for brand item width to ensure consistency
+  const BRAND_ITEM_WIDTH = 88
 
   useEffect(() => {
     const calculateDimensions = () => {
       const thumbnailItemWidth = 168
       const thumbnailSetWidth = content.length * thumbnailItemWidth
-      const brandItemWidth = 88
+      const brandItemWidth = BRAND_ITEM_WIDTH
       const brandSetWidth = content.length * brandItemWidth
       setDimensions({ thumbnailItemWidth, thumbnailSetWidth, brandItemWidth, brandSetWidth })
     }
@@ -186,6 +197,90 @@ export default function UnifiedCarousel() {
     setIsVisualizerActive(isVideoPlaying && selectedIndex !== -1)
   }, [isVideoPlaying, selectedIndex])
 
+  // Slot machine effect when a video is selected
+  useEffect(() => {
+    if (selectedIndex !== -1 && !isSpinning) {
+      // Start the slot machine
+      startSlotMachine();
+    }
+  }, [selectedIndex]);
+
+
+// Replace the startSlotMachine function with this improved version
+const startSlotMachine = () => {
+  if (isSpinning || selectedIndex === -1) return;
+  
+  setIsSpinning(true);
+  
+  // Speed up the animation by reducing these values
+  const spinIterations = 2; // Reduced from 3
+  const singleLoopDuration = 30; // Reduced from 300ms
+  const slowdownDuration = 4000; // Reduced from 500ms
+  
+  // Total items to move through during the spinning animation
+  const totalItems = content.length * spinIterations;
+  
+  // Use a more precise calculation to ensure perfect centering
+  // Start with a large enough base offset
+  const baseOffset = content.length * 12; 
+  
+  // Calculate target index that will be centered
+  const targetIndex = baseOffset + selectedIndex; 
+  
+  // Start the spinning animation
+  let startTime;
+  let prevTimeStamp;
+  let currentPosition = 0;
+  
+  const animate = (timeStamp) => {
+    if (!startTime) {
+      startTime = timeStamp;
+      prevTimeStamp = timeStamp;
+    }
+    
+    const elapsed = timeStamp - startTime;
+    const totalDuration = (singleLoopDuration * totalItems) + slowdownDuration;
+    
+    if (elapsed < totalDuration) {
+      // Calculate progress based on easing
+      let progress;
+      if (elapsed < singleLoopDuration * totalItems) {
+        // Fast spinning phase
+        progress = elapsed / (singleLoopDuration * totalItems);
+        currentPosition = Math.floor(progress * totalItems);
+      } else {
+        // Slowdown and landing phase
+        const slowdownProgress = (elapsed - singleLoopDuration * totalItems) / slowdownDuration;
+        const easeOutProgress = 1 - Math.pow(1 - slowdownProgress, 3); // Cubic ease-out
+        
+        // Calculate the remaining distance to target
+        const remainingDistance = targetIndex - Math.min(totalItems, currentPosition);
+        
+        // Apply easing to the remaining distance
+        const easedRemaining = remainingDistance * easeOutProgress;
+        currentPosition = Math.min(totalItems, currentPosition) + easedRemaining;
+      }
+      
+      // Update position - make sure we use the exact width calculation
+      if (slotReelRef.current) {
+        slotReelRef.current.style.transform = `translateX(-${currentPosition * BRAND_ITEM_WIDTH}px)`;
+      }
+      
+      requestAnimationFrame(animate);
+    } else {
+      // Ensure we end exactly at the target position
+      if (slotReelRef.current) {
+        slotReelRef.current.style.transform = `translateX(-${targetIndex * BRAND_ITEM_WIDTH}px)`;
+      }
+      
+      // End spinning
+      setIsSpinning(false);
+      setSlotPosition(targetIndex);
+    }
+  };
+  
+  requestAnimationFrame(animate);
+};
   const handleMouseEnter = (index) => {
     if (selectedIndex === -1) {
       setIsPaused(true)
@@ -220,10 +315,7 @@ export default function UnifiedCarousel() {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col justify-between overflow-hidden relative">
-      <video autoPlay muted loop playsInline className="absolute w-full h-full object-cover">
-        <source src="/bg.mp4" type="video/mp4" />
-      </video>
+    <div className="h-screen w-full bg-[#dcdcdc] flex flex-col justify-between overflow-hidden relative">
 
       {/* Audio Visualizer Component with Logo */}
       <AudioVisualizer 
@@ -296,55 +388,120 @@ export default function UnifiedCarousel() {
         )}
       </div>
 
-      {/* Brand Carousel */}
-      <div className="h-[10%] w-full mb-4 relative z-10">
-        <div className="relative" ref={brandCarouselRef}>
-          <div
-            className="brand-track inline-flex items-center justify-start"
-            style={{
-              animationPlayState: isPaused ? 'paused' : 'running',
-              animationDuration: `${baseAnimationDuration}s`
-            }}
-          >
-            {repeatedContent.map((item, index) => {
-              const normalized = index % content.length
-              const isHovered = selectedIndex === -1 && findActiveItemIndex(activeIndex) === normalized
-              const isSelected = selectedIndex === normalized
-              const shouldHighlight = isSelected || isHovered
-              const isDimmed = selectedIndex !== -1 && normalized !== selectedIndex
+      {/* Brand Carousel with Slot Machine Effect - Fixed height container */}
+      <div className="h-[10%] w-full mb-3 relative z-10 flex items-center justify-center">
+        {/* Normal carousel display - always maintain same height */}
+        <div className="h-32 w-full flex items-center justify-center">
+          {selectedIndex === -1 ? (
+            <div className="relative w-full" ref={brandCarouselRef}>
+              <div
+                className="brand-track inline-flex items-center"
+                style={{
+                  animationPlayState: isPaused ? 'paused' : 'running',
+                  animationDuration: `${baseAnimationDuration}s`
+                }}
+              >
+                {repeatedContent.map((item, index) => {
+                  const normalized = index % content.length
+                  const isHovered = findActiveItemIndex(activeIndex) === normalized
+                  
+                  return (
+                    <div
+                      key={`brand-normal-${index}`}
+                      className="flex-shrink-0 mx-2"
+                    >
+                      <div
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          isHovered ? 'ring-4 ring-white shadow-lg scale-125 animate-glow' : 'scale-100'
+                        }`}
+                        style={{ backgroundColor: item.brand.color }}
+                      >
+                        <img src={item.brand.logo} alt={item.brand.name} className="w-16 h-16 object-contain" />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Slot Machine Reel with fixed positioning */
+            <div className="slot-machine-container w-full flex justify-center items-center overflow-hidden h-32">
+  {/* Center marker removed */}
+  
+  {/* Center alignment container with fixed height */}
+  <div className="relative w-full flex justify-center items-center overflow-hidden h-32">
+    {/* Fixed positioning container for the reel */}
+    <div className="absolute inset-0 flex justify-center items-center overflow-hidden">
+    <div className="absolute z-10 ml-1 w-[85px] h-[85px] rounded-full border-[5px] border-[#02A170] animate-ring-glow ring-overlay" />
 
-              return (
-                <div
-                  key={`brand-${index}`}
-                  className={`flex-shrink-0 mx-2 transition-all duration-300 ${isDimmed ? 'opacity-30' : 'opacity-100'}`}
-                >
-                  <div
-                    className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-                      shouldHighlight ? 'ring-4 ring-white shadow-lg scale-125 animate-glow' : 'scale-100'
-                    }`}
-                    style={{ backgroundColor: item.brand.color }}
-                  >
-                    <img src={item.brand.logo} alt={item.brand.name} className="w-16 h-16 object-contain" />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+      {/* Moving reel with perfect centering */}
+      <div 
+  ref={slotReelRef}
+  className={`slot-reel inline-flex items-center transition-transform ${isSpinning ? '' : 'slot-transition-smooth'}`}
+
+        style={{
+          willChange: 'transform',
+          // Perfect centering calculation
+          position: 'absolute',
+          left: '50%',
+          // This is the key change - ensure the center of the item is at the center of the screen
+          marginLeft: `-${BRAND_ITEM_WIDTH/2}px`
+        }}
+      >
+        {slotContent.map((item, index) => {
+          const normalized = index % content.length;
+          const isSelected = normalized === selectedIndex && !isSpinning;
+          
+          return (
+            <div
+              key={`brand-slot-${index}`}
+              className="flex-shrink-0 mx-2"
+              style={{
+                // Set exact width to ensure proper positioning
+                width: `${BRAND_ITEM_WIDTH - 16}px`, // Account for mx-2 (8px on each side)
+              }}
+            >
+              <div
+                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  isSpinning ? 'slot-item-spinning' : 
+                  isSelected ? '' : 'opacity-30 scale-75'
+                }`}
+                style={{ backgroundColor: item.brand.color }}
+              >
+                <img 
+                  src={item.brand.logo} 
+                  alt={item.brand.name} 
+                  className="w-16 h-16 object-contain" 
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+  
+  {isSpinning && (
+    <div className="absolute inset-0 z-20 flex justify-center items-center pointer-events-none">
+      <div className="slot-light-flicker absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-10"></div>
+    </div>
+  )}
+</div>
+          )}
         </div>
       </div>
+
       {/* Dynamic Brand Info Display */}
-      {selectedIndex !== -1 && isVideoPlaying && (
-  <div className="absolute bottom-30 left-1/2 transform -translate-x-1/2 z-8">
-    <MusicInfoDisplay
-      key={selectedIndex} // 👈 force remount when selectedIndex changes
-      title={content[selectedIndex].brand.title}
-      brandName={content[selectedIndex].brand.name}
-      brandDescription={content[selectedIndex].brand.description}
-    />
-  </div>
-)}
-
-
+      {selectedIndex !== -1 && isVideoPlaying && !isSpinning && (
+        <div className="absolute bottom-30 left-1/2 transform -translate-x-1/2 z-8 fade-in-text">
+          {/* <MusicInfoDisplay
+            key={selectedIndex}
+            title={content[selectedIndex].brand.title}
+            brandName={content[selectedIndex].brand.name}
+            brandDescription={content[selectedIndex].brand.description}
+          /> */}
+        </div>
+      )}
 
       {/* Animation styles */}
       <style jsx>{`
@@ -356,7 +513,7 @@ export default function UnifiedCarousel() {
           animation: brand-carousel ${baseAnimationDuration}s linear infinite;
         }
 
-@keyframes thumbnail-carousel {
+        @keyframes thumbnail-carousel {
           0% {
             transform: translateX(0);
           }
@@ -383,13 +540,70 @@ export default function UnifiedCarousel() {
           }
         }
 
-        .animate-glow {
-          animation: glow 2s ease-in-out infinite;
+        /* Slot Machine Animations */
+        .slot-item-spinning {
+          transform: scale(0.9);
+          filter: blur(1px);
+        }
+        .slot-transition-smooth {
+  transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1); /* Smooth ease-out */
+}
+
+        .slot-light-flicker {
+          animation: slot-flicker 0.3s ease-in-out infinite alternate;
+        }
+.ring-overlay {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.animate-ring-glow {
+  animation: ring-glow 1.6s infinite ease-in-out;
+  box-shadow: 0 0 4px #02A170, 0 0 10px #02A170, 0 0 20px #02A17066;
+}
+
+@keyframes ring-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px #02A170, 0 0 10px #02A170, 0 0 20px #02A17066;
+  }
+  50% {
+    box-shadow: 0 0 6px #02A170, 0 0 16px #02A170aa, 0 0 28px #02A17088;
+  }
+}
+
+
+.slot-machine-container .absolute.z-10 {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+        @keyframes slot-flicker {
+          0% {
+            opacity: 0.05;
+          }
+          100% {
+            opacity: 0.2;
+          }
+        }
+        
+        .fade-in-text {
+          animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
       `}</style>
     </div>
   )
 }
-
-
-

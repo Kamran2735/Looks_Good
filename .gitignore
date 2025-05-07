@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Multimedia
+# Ignore all files in the video directory
+/public/Videos/*
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

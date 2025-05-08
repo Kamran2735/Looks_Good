@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import AudioVisualizer from './AudioResponsiveWaves'
-import MusicInfoDisplay from './MusicInfoDisplay'
-
 
 export default function UnifiedCarousel() {
   const [isPaused, setIsPaused] = useState(false)
@@ -33,8 +31,8 @@ export default function UnifiedCarousel() {
 
   const content = [
     {
-      thumbnail: '/Thumbnails/1.svg',
-      video: '/Videos/1.mp4',
+      thumbnail: '/Thumbnails/100TXGucci.png',
+      video: '/Videos/100TXGucci.mp4',
       brand: {
         name: 'Brand 1',
         logo: '/Brands/1.svg',
@@ -44,8 +42,8 @@ export default function UnifiedCarousel() {
       }
     },
     {
-      thumbnail: '/Thumbnails/2.svg',
-      video: '/Videos/2.mp4',
+      thumbnail: '/Thumbnails/ALO_Paris.png',
+      video: '/Videos/ALO_Paris.mp4',
       brand: {
         name: 'Brand 2',
         logo: '/Brands/2.svg',
@@ -55,8 +53,8 @@ export default function UnifiedCarousel() {
       }
     },
     {
-      thumbnail: '/Thumbnails/3.svg',
-      video: '/Videos/3.mp4',
+      thumbnail: '/Thumbnails/Bricks_&_Wood_x_New_Balance_Jungle_To_Jungle.png',
+      video: '/Videos/Bricks_&_Wood_x_New_Balance_Jungle_To_Jungle.mp4',
       brand: {
         name: 'Brand 3',
         logo: '/Brands/3.svg',
@@ -66,8 +64,8 @@ export default function UnifiedCarousel() {
       }
     },
     {
-      thumbnail: '/Thumbnails/4.svg',
-      video: '/Videos/4.mp4',
+      thumbnail: '/Thumbnails/CMENT_Nike_SPS.png',
+      video: '/Videos/CMENT_Nike_SPS.mp4',
       brand: {
         name: 'Brand 4',
         logo: '/Brands/4.svg',
@@ -77,8 +75,8 @@ export default function UnifiedCarousel() {
       }
     },
     {
-      thumbnail: '/Thumbnails/5.svg',
-      video: '/Videos/5.mp4',
+      thumbnail: '/Thumbnails/eBay_WatchHype.png',
+      video: '/Videos/eBay_WatchHype.mp4',
       brand: {
         name: 'Brand 5',
         logo: '/Brands/5.svg',
@@ -88,8 +86,8 @@ export default function UnifiedCarousel() {
       }
     },
     {
-      thumbnail: '/Thumbnails/6.svg',
-      video: '/Videos/6.mp4',
+      thumbnail: '/Thumbnails/Match_Me_If_You_Can.png',
+      video: '/Videos/Match_Me_If_You_Can.mp4',
       brand: {
         name: 'Brand 6',
         logo: '/Brands/6.svg',
@@ -97,7 +95,41 @@ export default function UnifiedCarousel() {
         title: 'Drum Machine Dynasty',
         description: 'Precision percussion. Timeless beats. Brand 6 leads the rhythm renaissance.'
       }
-    }
+    },
+    {
+      thumbnail: '/Thumbnails/MORRISON_MACKAGE.png',
+      video: '/Videos/MORRISON_MACKAGE.mp4',
+      brand: {
+        name: 'Brand 4',
+        logo: '/Brands/4.svg',
+        color: '#000000',
+        title: 'Bassline Revolution',
+        description: 'A bold brand that builds booming basslines for dancefloor dominance.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/MSI_Alien.png',
+      video: '/Videos/MSI_Alien.mp4',
+      brand: {
+        name: 'Brand 5',
+        logo: '/Brands/5.svg',
+        color: '#000000',
+        title: 'Synthwave Dreams',
+        description: 'Brand 5 layers neon melodies with dreamy soundscapes for chill nights.'
+      }
+    },
+    {
+      thumbnail: '/Thumbnails/Nike_DiamondShine.png',
+      video: '/Videos/Nike_DiamondShine.mp4',
+      brand: {
+        name: 'Brand 6',
+        logo: '/Brands/6.svg',
+        color: '#000000',
+        title: 'Drum Machine Dynasty',
+        description: 'Precision percussion. Timeless beats. Brand 6 leads the rhythm renaissance.'
+      }
+    },
+    
   ]
   
   // Create a much longer array for slot machine effect
@@ -110,6 +142,37 @@ export default function UnifiedCarousel() {
   // Define a constant for brand item width to ensure consistency
   const BRAND_ITEM_WIDTH = 88
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const videoElement = document.querySelector('video[controls]')
+      if (!videoElement) return
+  
+      if (e.code === 'Space') {
+        e.preventDefault() // Prevent page scrolling
+        if (videoElement.paused) {
+          videoElement.play()
+        } else {
+          videoElement.pause()
+        }
+      }
+  
+      if (e.code === 'Escape') {
+        setSelectedIndex(-1)
+        setIsPaused(false)
+        setActiveIndex(-1)
+        setIsVisualizerActive(false)
+      }
+    }
+  
+    if (selectedIndex !== -1) {
+      window.addEventListener('keydown', handleKeyDown)
+    }
+  
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedIndex])
+  
   useEffect(() => {
     const calculateDimensions = () => {
       const thumbnailItemWidth = 168
@@ -387,6 +450,15 @@ const startSlotMachine = () => {
           </div>
         )}
       </div>
+      <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+        <h2>
+        <span className="text-[80px] md:text-[100px] 2xl:text-[150px] font-bold text-black custom-outline">
+  LOOKS GOOD
+</span>
+
+
+        </h2>
+        </div>
 
       {/* Brand Carousel with Slot Machine Effect - Fixed height container */}
       <div className="h-[10%] w-full mb-3 relative z-10 flex items-center justify-center">

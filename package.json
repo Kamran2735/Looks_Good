@@ -9,15 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@react-three/drei": "^10.0.7",
-    "@react-three/fiber": "^9.1.2",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.9.7",
     "install": "^0.13.0",
-    "keen-slider": "^6.8.6",
+    "lucide-react": "^0.507.0",
     "next": "15.3.1",
     "npm": "^11.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "three": "^0.176.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

@@ -1,2 +1,8 @@
 @import "tailwindcss";
 
+
+/* Add this to your global CSS or in <style jsx> if using Next.js */
+.custom-outline {
+    -webkit-text-stroke: 8px #000000; /* Thicker black outline */
+  }
+  

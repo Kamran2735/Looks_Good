@@ -18,24 +18,24 @@ const dancingScript = Dancing_Script({
 
 const testimonials = [
   {
-    logo: '/Partners/Apple.png',
-    name: 'Sarah J.',
-    role: 'Creative Director, Apple',
-    quote: 'Evietek’s design instincts are unmatched. Working with them elevated our product experience tremendously.',
+    logo: '/Partners/ALO.png',
+    name: '',
+    role: 'Director, Alo',
+    quote: 'The studio consistently delivers exceptional work ahead of his schedule. Their reliability and punctuality make them a dream collaborator on any tight production timeline.',
     avatar: '/avatar1.png',
   },
   {
     logo: '/Partners/Nike.png',
-    name: 'Jason R.',
-    role: 'Brand Lead, Nike',
-    quote: 'Their team brought both creativity and discipline. Absolutely loved the collaboration!',
+    name: '',
+    role: 'Creative Director, Nike',
+    quote: 'Looks Good`s ability to capture the smallest nuances in sound is extraordinary. Every project feels richer and more immersive because of their meticulous attention to detail.',
     avatar: '/avatar2.png',
   },
   {
-    logo: '/Partners/SAMSUNG.png',
-    name: 'Linda K.',
-    role: 'Head of Innovation, Samsung',
-    quote: 'Timely, reliable, and brilliant. Couldn’t ask for more in a tech partner.',
+    logo: '/Partners/Amazon.png',
+    name: '',
+    role: 'Editor, Amazon',
+    quote: 'Working with Looks Good is always a pleasure. Their professionalism,dedication to quality, and ability to meet deadlines without compromising creative are unmatched',
     avatar: '/avatar3.png',
   },
 ]

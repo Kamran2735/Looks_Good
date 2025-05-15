@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
 import {
   RiFacebookFill,
   RiInstagramLine,
@@ -12,8 +11,9 @@ import {
 } from 'react-icons/ri';
 
 import Marquee from '@/components/Marquee';
+import { useParams } from 'next/navigation';
 
-// Theme colors from your TeamSection component
+// Theme colors
 const themeColors = {
   primary: '#0c4000',
   secondary: '#1a8c00', 
@@ -63,31 +63,71 @@ const ProgressBar = ({ label, percent }) => {
     </div>
   );
 };
+const socialMap = [
+  { key: 'facebook', Icon: RiFacebookFill },
+  { key: 'instagram', Icon: RiInstagramLine },
+  { key: 'twitter', Icon: RiTwitterXFill },
+  { key: 'linkedin', Icon: RiLinkedinFill },
+  { key: 'spotify', Icon: RiSpotifyFill },
+  { key: 'soundcloud', Icon: RiSoundcloudFill }
+];
 
-const SocialIcon = ({ Icon }) => {
-  return (
-    <a 
-      href="#" 
-      target="_blank" 
-      rel="noopener noreferrer"
-      className="w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-      style={{ 
-        background: themeColors.primary,
-        color: themeColors.white
-      }}
-    >
-      <Icon size={20} />
-    </a>
-  );
+const SocialIcon = ({ Icon, url }) => (
+  <a 
+    href={url} 
+    target="_blank" 
+    rel="noopener noreferrer"
+    className="w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+    style={{ 
+      background: themeColors.primary,
+      color: themeColors.white
+    }}
+  >
+    <Icon size={20} />
+  </a>
+);
+
+// Function to fetch team member data
+const fetchTeamMember = async (slug) => {
+  try {
+    // Replace this with your actual database fetch logic
+    const response = await fetch(`/api/team/${slug}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch team member data');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching team member:', error);
+    return null;
+  }
 };
 
 const TeamProfile = () => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [teamMember, setTeamMember] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const params = useParams();
+  const slug = params.team_member; // Get the slug from URL
   
   useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-  
+    const loadTeamMember = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchTeamMember(slug);
+        setTeamMember(data);
+        setLoading(false);
+        setIsLoaded(true);
+      } catch (err) {
+        setError('Failed to load team member data');
+        setLoading(false);
+      }
+    };
+    
+    loadTeamMember();
+  }, [slug]);
+
   const socialIcons = [
     RiFacebookFill, 
     RiInstagramLine, 
@@ -97,20 +137,43 @@ const TeamProfile = () => {
     RiSoundcloudFill
   ];
 
-  const skills = [
-    ['Sound Design', 95],
-    ['Audio Mixing & Mastering', 88],
-    ['Voiceover Engineering', 82],
-    ['Brand Sound Identity', 90],
-    ['Creative Direction', 76]
-  ];
+  if (loading) {
+    return (
+      <div className="py-20 lg:py-24 flex justify-center items-center">
+        <div className="text-xl">Loading team member data...</div>
+      </div>
+    );
+  }
 
+  if (error || !teamMember) {
+    return (
+      <div className="py-20 lg:py-24 flex justify-center items-center">
+        <div className="text-xl text-red-600">Error loading team member. Please try again later.</div>
+      </div>
+    );
+  }
+
+  // Destructure teamMember data
+  const { 
+    name, 
+    role, 
+    image, 
+    bio,
+    responsibility,
+    experience,
+    email,
+    phone,
+    stats,
+    featuredProjects
+  } = teamMember;
+
+  // Format personal info from database data
   const personalInfo = [
     ['Company', 'Looks Good'],
-    ['Responsibility', 'Brand Development, Brand Integration'],
-    ['Experience', '12+ years'],
-    ['Email', 'andrew@looksgood.cc'],
-    ['Phone', '+123456789']
+    ['Responsibility', responsibility],
+    ['Experience', experience],
+    ['Email', email],
+    ['Phone', phone]
   ];
 
   return (
@@ -125,9 +188,12 @@ const TeamProfile = () => {
         >
           {/* Social Icons */}
           <div className="w-full lg:w-1/12 flex lg:flex-col justify-center items-center gap-3 mb-6 lg:mb-0">
-            {socialIcons.slice(0, 4).map((Icon, idx) => (
-              <SocialIcon key={idx} Icon={Icon} />
-            ))}
+{socialMap.map(({ key, Icon }, idx) => {
+  const url = teamMember?.social?.[key];
+  if (!url) return null;
+
+  return <SocialIcon key={idx} Icon={Icon} url={url} />;
+})}
           </div>
 
           {/* Image */}
@@ -135,7 +201,7 @@ const TeamProfile = () => {
             <div className="relative">
               <div className="rounded-2xl overflow-hidden shadow-lg border-2" style={{ borderColor: themeColors.light }}>
                 <div className="relative">
-                  <img src="/Teams/Roman.jpg" alt="Roman Richards" className="w-full" />
+                  <img src={image} alt={`${name}`} className="w-full" />
                   <div className="absolute inset-0" style={{ 
                     background: `linear-gradient(to top, ${themeColors.primary}80 0%, transparent 100%)`,
                     opacity: 0.2
@@ -169,8 +235,8 @@ const TeamProfile = () => {
           <div className="w-full lg:w-7/12 px-4">
             <div className="p-4 md:p-6 lg:p-8 rounded-2xl" style={{ background: 'rgba(205, 241, 216, 0.2)' }}>
               <div className="mb-6">
-                <h1 className="text-3xl md:text-4xl font-bold mb-1" style={{ color: themeColors.primary }}>Andrew Richards</h1>
-                <p className="text-xl mb-4" style={{ color: themeColors.secondary }}>Supervising Sound Designer</p>
+                <h1 className="text-3xl md:text-4xl font-bold mb-1" style={{ color: themeColors.primary }}>{name}</h1>
+                <p className="text-xl mb-4" style={{ color: themeColors.secondary }}>{role}</p>
                 <div className="h-1 w-24 mb-6 rounded-full" style={{ background: themeColors.accent }}></div>
               </div>
               
@@ -206,7 +272,8 @@ const TeamProfile = () => {
               <h2 className="text-2xl font-bold mb-6" style={{ color: themeColors.primary }}>Personal Information</h2>
               <div className="h-1 w-16 mb-6 rounded-full" style={{ background: themeColors.accent }}></div>
               <p className="text-gray-700 leading-relaxed">
-              Andrew Collie Richards is a lifelong musician with a background in guitar, violin, and piano, whose passion for sound design has taken him across the globe, working on over 150 projects. A standout moment in his career was serving as Sound Supervisor for Water For Birds, winner of Best Melbourne Documentary at the 2023 Melbourne Documentary Film Festival. Currently learning the sitar, Andrew’s creative spark burns as bright as his favorite Marlboro Red, which he claims is the perfect "smoke break muse.”              </p>
+                {bio}
+              </p>
             </div>
           </div>
 
@@ -217,8 +284,8 @@ const TeamProfile = () => {
               <h2 className="text-2xl font-bold mb-6" style={{ color: themeColors.primary }}>Professional Skills</h2>
               <div className="h-1 w-16 mb-6 rounded-full" style={{ background: themeColors.accent }}></div>
               <div className="space-y-4">
-                {skills.map(([label, percent], idx) => (
-                  <ProgressBar key={idx} label={label} percent={percent} />
+                {stats && stats.map((stat, idx) => (
+                  <ProgressBar key={idx} label={stat.label} percent={stat.level} />
                 ))}
               </div>
             </div>
@@ -233,17 +300,24 @@ const TeamProfile = () => {
             <h2 className="text-3xl font-bold mb-4" style={{ color: themeColors.primary }}>Featured Projects</h2>
             <div className="h-1 w-24 mx-auto mb-4 rounded-full" style={{ background: themeColors.accent }}></div>
             <p className="text-gray-600 max-w-3xl mx-auto">
-              Explore some of Andrew's most impactful audio work, showcasing his versatility across brands and platforms.
+              Explore some of {name}'s most impactful audio work, showcasing their versatility across brands and platforms.
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {['Nike Running Campaign', 'Mercedes-Benz Brand Sound', 'Red Bull Live Event'].map((project, idx) => (
+            {featuredProjects && featuredProjects.map((project, idx) => (
               <div 
                 key={idx} 
                 className="bg-white rounded-xl overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
               >
                 <div className="h-48 bg-gray-200 relative">
+                  {project.imageUrl && (
+                    <img 
+                      src={project.imageUrl} 
+                      alt={project.title} 
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-16 h-16 rounded-full bg-white/80 flex items-center justify-center shadow-md">
                       <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-green-700 border-b-8 border-b-transparent ml-1"></div>
@@ -251,10 +325,10 @@ const TeamProfile = () => {
                   </div>
                 </div>
                 <div className="p-5">
-                  <h3 className="text-xl font-semibold mb-2" style={{ color: themeColors.primary }}>{project}</h3>
-                  <p className="text-gray-600 mb-4">Sound design and audio branding that elevates the user experience.</p>
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: themeColors.primary }}>{project.title}</h3>
+                  <p className="text-gray-600 mb-4">{project.description}</p>
                   <a 
-                    href="#" 
+                    href={project.sampleUrl || "#"} 
                     className="inline-flex items-center text-sm font-medium transition-colors duration-300"
                     style={{ color: themeColors.secondary }}
                   >

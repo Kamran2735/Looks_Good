@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  setPersistence,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { RiLockLine, RiMailLine } from 'react-icons/ri';
 import { Poppins } from 'next/font/google';
@@ -28,10 +34,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockTime, setBlockTime] = useState(null);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetAttempts, setResetAttempts] = useState(0);
+  const [lastResetTime, setLastResetTime] = useState(null);
+  const [cooldown, setCooldown] = useState(0);
+
+
   const router = useRouter();
 
   // For the animated equalizer
   const [equalizerHeights, setEqualizerHeights] = useState([]);
+
+
+useEffect(() => {
+  if (showResetModal) {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowResetModal(false);
+        setResetEmail('');
+        setResetError('');
+        setResetSuccess('');
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }
+}, [showResetModal]);
+
 
   // Initialize and animate the equalizer bars
   useEffect(() => {
@@ -48,35 +84,110 @@ export default function LoginPage() {
     return () => clearInterval(animationInterval);
   }, []);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const handleLogin = async (e) => {
+  e.preventDefault();
+
+  // If user is blocked
+  if (isBlocked) {
+    const timeLeft = Math.ceil((blockTime - Date.now()) / 1000);
+    setError(`Too many failed attempts. Try again in ${timeLeft} seconds.`);
+    return;
+  }
+
+  setError('');
+  setLoading(true);
+
+  try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+    await signInWithEmailAndPassword(auth, email, password);
     
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push('/admin/dashboard');
-    } catch (err) {
-      console.error(err);
-      
-      // User-friendly error messages
-      if (err.code === 'auth/invalid-email') {
-        setError('Please enter a valid email address.');
-      } else if (err.code === 'auth/user-not-found') {
-        setError('No account found with this email. Please check and try again.');
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password. Please try again.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed login attempts. Please try again later.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Network error. Please check your connection and try again.');
-      } else {
-        setError('Login failed. Please check your credentials and try again.');
+    // Reset login attempts on successful login
+    setLoginAttempts(0);
+    setIsBlocked(false);
+    setBlockTime(null);
+    router.push('/admin/dashboard');
+
+  } catch (err) {
+    console.error(err);
+
+    setLoginAttempts(prev => {
+      const updated = prev + 1;
+
+      if (updated >= 5) {
+        setIsBlocked(true);
+        const unblockAt = Date.now() + 30000; // 30 seconds block
+        setBlockTime(unblockAt);
+
+        // Automatically unblock after timeout
+        setTimeout(() => {
+          setIsBlocked(false);
+          setLoginAttempts(0);
+          setBlockTime(null);
+        }, 30000);
       }
-    } finally {
-      setLoading(false);
+
+      return updated;
+    });
+
+    if (err.code === 'auth/invalid-email') {
+      setError('Please enter a valid email address.');
+    } else if (err.code === 'auth/user-not-found') {
+      setError('No account found with this email. Please check and try again.');
+    } else if (err.code === 'auth/wrong-password') {
+      setError('Incorrect password. Please try again.');
+    } else if (err.code === 'auth/too-many-requests') {
+      setError('Too many failed login attempts. Please try again later.');
+    } else if (err.code === 'auth/network-request-failed') {
+      setError('Network error. Please check your connection and try again.');
+    } else {
+      setError('Login failed. Please check your credentials and try again.');
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+// Handle password reset
+const handlePasswordReset = async () => {
+  const now = Date.now();
+
+  // Clear previous messages on every click
+  setResetError('');
+  setResetSuccess('');
+
+  // Too many attempts
+  if (resetAttempts >= 5) {
+    setResetError('Too many attempts. Please try again later.');
+    return;
+  }
+
+  // Cooldown in effect
+  if (lastResetTime && now - lastResetTime < 30000) {
+    const secondsLeft = Math.ceil((30000 - (now - lastResetTime)) / 1000);
+    setResetError(`Please wait ${secondsLeft} seconds before trying again.`);
+    return;
+  }
+
+  if (!resetEmail) {
+    setResetError('Please enter your email address.');
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, resetEmail);
+    setResetSuccess('If this email is registered, you’ll receive a reset link.');
+    setResetAttempts(prev => prev + 1);
+    setLastResetTime(now);
+  } catch (err) {
+    if (err.code === 'auth/invalid-email') {
+      setResetError('Invalid email address.');
+    } else {
+      setResetSuccess('If this email is registered, you’ll receive a reset link.');
+    }
+  }
+};
+
 
   return (
     <div 
@@ -179,16 +290,34 @@ export default function LoginPage() {
                   required
                 />
               </div>
+<div className="flex items-center justify-between">
+  {/* Remember Me */}
+  <div className="flex items-center">
+    <input
+      id="rememberMe"
+      type="checkbox"
+      checked={rememberMe}
+      onChange={(e) => setRememberMe(e.target.checked)}
+      className="mr-2"
+    />
+    <label htmlFor="rememberMe" className="text-gray-500 text-sm">
+      Keep me logged in
+    </label>
+  </div>
 
-              <div className="text-right">
-                <a 
-                  href="#" 
-                  className="text-sm hover:underline transition"
-                  style={{ color: themeColors.secondary }}
-                >
-                  Forgot password?
-                </a>
-              </div>
+  {/* Forgot Password */}
+<button
+  type="button"
+  onClick={() => setShowResetModal(true)}
+  className="text-sm hover:underline transition"
+  style={{ color: themeColors.secondary }}
+>
+  Forgot password?
+</button>
+
+
+</div>
+
 
               {/* Login Button */}
               <button
@@ -210,6 +339,64 @@ export default function LoginPage() {
                 ) : 'Sign In to Dashboard'}
               </button>
             </form>
+
+            {showResetModal && (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30"
+    onKeyDown={(e) => {
+      if (e.key === 'Escape') {
+        setShowResetModal(false);
+        setResetEmail('');
+        setResetError('');
+        setResetSuccess('');
+      }
+    }}
+    tabIndex={-1}
+  >
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm relative">
+      <h3 className="text-lg font-semibold mb-2" style={{ color: themeColors.primary }}>
+        Reset Password
+      </h3>
+      <p className="text-sm text-gray-600 mb-4">Enter your email to receive a reset link.</p>
+
+      <input
+        type="email"
+        placeholder="Your email"
+        value={resetEmail}
+        onChange={(e) => setResetEmail(e.target.value)}
+        className="w-full p-3 mb-3 border rounded-md border-gray-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+      />
+
+      {resetError && <p className="text-sm text-red-600 mb-2">{resetError}</p>}
+      {resetSuccess && <p className="text-sm text-green-600 mb-2">{resetSuccess}</p>}
+
+      <div className="flex justify-between mt-4">
+        <button
+          onClick={() => {
+            setShowResetModal(false);
+            setResetEmail('');
+            setResetError('');
+            setResetSuccess('');
+          }}
+          className="text-sm px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handlePasswordReset}
+          className="text-sm px-4 py-2 text-white rounded"
+          style={{
+            background: `linear-gradient(to right, ${themeColors.secondary}, ${themeColors.accent})`,
+          }}
+        >
+          Send Link
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
             
             {/* Security Notice */}
             <div className="mt-8 text-center text-gray-500 text-xs">

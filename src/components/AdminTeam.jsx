@@ -24,6 +24,8 @@ import {
   where
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
+
 
 // Theme colors matching your dashboard
 const themeColors = {
@@ -57,8 +59,10 @@ export default function TeamComponent() {
     short_info: '',
     bio: '',
     image: '',
+    imageFile: null, // New field to hold the actual file
     responsibility: '',
     link: '',
+    slug: '',
     social: {}, // map, not array
     stats: [{ label: '', level: '' }], // Changed from title/value to label/level
     _newPlatform: '',
@@ -66,6 +70,22 @@ export default function TeamComponent() {
   });
 
   const itemsPerPage = 5;
+
+const handleImageUpload = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setFormData(prev => ({
+      ...prev,
+      imageFile: file, // save the actual file
+      image: reader.result, // just for preview
+    }));
+  };
+  reader.readAsDataURL(file);
+};
+
   
   // Fetch team members from Firestore
   useEffect(() => {
@@ -112,6 +132,14 @@ export default function TeamComponent() {
     // Convert to lowercase and remove special characters
     return `/team/${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
   };
+
+    const generateSlugFromName = (name) => {
+    if (!name) return '';
+    // Extract first part of name (before any space)
+    const firstName = name.split(' ')[0];
+    // Convert to lowercase and remove special characters
+    return `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+  };
   
   // Handle form input change
   const handleInputChange = (e) => {
@@ -120,10 +148,12 @@ export default function TeamComponent() {
     // Auto-generate link if name is changed
     if (name === 'name') {
       const generatedLink = generateLinkFromName(value);
+      const generatedSlug = generateSlugFromName(value);
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        link: generatedLink
+        link: generatedLink,
+        slug: generatedSlug
       }));
     } else {
       setFormData(prev => ({
@@ -137,6 +167,8 @@ export default function TeamComponent() {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
   };
+
+  
   
 const validateForm = () => {
   const newErrors = {};
@@ -172,10 +204,12 @@ const validateForm = () => {
   }
 
   // Additional Info
-  if (formData.category && formData.category.length > 20) {
-    newErrors.category = 'Category should be less than 20 characters';
-    firstTabWithError ||= 'additional';
-  }
+const allowedCategories = ['Leadership', 'Production', 'Technical', 'Marketing'];
+if (!formData.category || !allowedCategories.includes(formData.category)) {
+  newErrors.category = 'Please select a valid category';
+  firstTabWithError ||= 'additional';
+}
+
 
   if (formData.experience) {
     const expValue = parseInt(formData.experience);
@@ -183,11 +217,6 @@ const validateForm = () => {
       newErrors.experience = 'Experience must be a number';
       firstTabWithError ||= 'additional';
     }
-  }
-
-  if (formData.image && !formData.image.match(/^(\/Teams\/.*\.(jpg|jpeg|png|webp|svg))|(https?:\/\/.*\.(jpg|jpeg|png|webp|svg))$/i)) {
-    newErrors.image = 'Image path should be in format "/Teams/name.jpg" or a valid URL';
-    firstTabWithError ||= 'additional';
   }
 
   if (!formData.short_info.trim()) {
@@ -239,6 +268,7 @@ const validateForm = () => {
       image: '',
       responsibility: '',
       link: '',
+      slug: '',
       social: {}, // map, not array
       stats: [{ label: '', level: '' }], // Changed from title/value to label/level
       _newPlatform: '',
@@ -265,6 +295,7 @@ const validateForm = () => {
       image: member.image || '',
       responsibility: member.responsibility || '',
       link: member.link || generateLinkFromName(member.name || ''),
+      slug: member.slug || generateSlugFromName(member.name || ''),
       social: member.social || {}, 
       stats: member.stats || [{ label: '', level: '' }],
       _newPlatform: '',
@@ -287,7 +318,32 @@ const handleSubmit = async (e) => {
   }
 
   setLoading(true);
-  const { _newPlatform, _newLink, ...dataToSave } = formData;
+const { _newPlatform, _newLink, imageFile, ...dataToSave } = formData;
+
+// Upload new image if present
+if (imageFile) {
+  const reader = new FileReader();
+  const fileBase64 = await new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(imageFile);
+  });
+
+  const res = await fetch('/api/admin/team/images', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      file: fileBase64,
+      fileName: imageFile.name,
+      fileType: imageFile.type,
+    }),
+  });
+
+  const json = await res.json();
+  if (!json.publicUrl) throw new Error('Image upload failed');
+
+  dataToSave.image = json.publicUrl;
+}
 
   try {
     let response;
@@ -325,11 +381,23 @@ const handleSubmit = async (e) => {
 
   
   // Delete team member
-  const handleDeleteMember = async (id) => {
+const handleDeleteMember = async (id) => {
   if (!confirm('Are you sure you want to delete this team member?')) return;
 
   try {
     setLoading(true);
+
+    // Find the member first (to get image URL)
+    const memberToDelete = teamMembers.find(m => m.id === id);
+    const imageUrl = memberToDelete?.image;
+
+    // Parse file path
+    if (imageUrl?.includes('/team-media/')) {
+      const filePath = imageUrl.split('/team-media/')[1];
+      await supabase.storage.from('team-media').remove([filePath]);
+    }
+
+    // Then delete from Firestore
     const res = await fetch(`/api/admin/team/${id}`, { method: 'DELETE' });
     const json = await res.json();
 
@@ -345,6 +413,7 @@ const handleSubmit = async (e) => {
     setLoading(false);
   }
 };
+
 
 
   // Add new social platform
@@ -697,23 +766,33 @@ const handleSubmit = async (e) => {
 {activeTab === 'additional' && (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-          <input
-            type="text"
-            name="category"
-            value={formData.category}
-            onChange={handleInputChange}
-            maxLength={20}
-            className={`w-full px-3 py-2 border ${errors.category ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/30`}
-            placeholder="Max 20 characters"
-          />
-          {errors.category ? (
-            <p className="mt-1 text-sm text-red-600">{errors.category}</p>
-          ) : (
-            <p className="mt-1 text-xs text-gray-500">{formData.category.length}/20 characters</p>
-          )}
-        </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+  <div className="relative">
+    <select
+      name="category"
+      value={formData.category}
+      onChange={handleInputChange}
+      className={`appearance-none w-full px-3 py-2 pr-8 border ${
+        errors.category ? 'border-red-300 bg-red-50' : 'border-gray-300'
+      } rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white text-gray-700`}
+    >
+      <option value="">Select category</option>
+      <option value="Leadership">Leadership</option>
+      <option value="Production">Production</option>
+      <option value="Technical">Technical</option>
+      <option value="Marketing">Marketing</option>
+    </select>
+    <div className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+      ▼
+    </div>
+  </div>
+  {errors.category && (
+    <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+  )}
+</div>
+
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years)</label>
           <input
@@ -727,18 +806,7 @@ const handleSubmit = async (e) => {
           />
           {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Image Path</label>
-          <input
-            type="text"
-            name="image"
-            value={formData.image}
-            onChange={handleInputChange}
-            className={`w-full px-3 py-2 border ${errors.image ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/30`}
-            placeholder="/Teams/name.jpg or URL"
-          />
-          {errors.image && <p className="mt-1 text-sm text-red-600">{errors.image}</p>}
-        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Profile Link (auto-generated)</label>
           <input
@@ -750,7 +818,49 @@ const handleSubmit = async (e) => {
           />
           <p className="mt-1 text-xs text-gray-500">Auto-generated from name</p>
         </div>
+                <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Slug (auto-generated)</label>
+          <input
+            type="text"
+            name="link"
+            value={formData.slug}
+            disabled
+            className="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-md text-gray-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">Auto-generated from name</p>
+        </div>
       </div>
+
+      <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Upload Image</label>
+  
+  <div className="flex items-center space-x-4">
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleImageUpload}
+      className="text-sm text-gray-500
+                 file:mr-4 file:py-2 file:px-4
+                 file:rounded-md file:border-0
+                 file:text-sm file:font-semibold
+                 file:bg-green-100 file:text-green-700
+                 hover:file:bg-green-200"
+    />
+
+    {formData.image && (
+      <img
+        src={formData.image}
+        alt="Preview"
+        className="h-10 w-10 object-cover rounded-md border border-gray-200"
+      />
+    )}
+  </div>
+
+  {errors.image && (
+    <p className="mt-1 text-sm text-red-600">{errors.image}</p>
+  )}
+</div>
+
       
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Short Info <span className="text-red-500">*</span></label>

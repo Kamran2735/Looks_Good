@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, deleteDoc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
+import { doc, updateDoc, deleteDoc, getDoc, setDoc, collection, addDoc, Timestamp } from 'firebase/firestore';
 
 export async function PUT(req, { params }) {
   const { id } = params;
@@ -23,16 +24,29 @@ export async function DELETE(req, { params }) {
     const docSnap = await getDoc(memberRef);
     if (!docSnap.exists()) throw new Error('Member not found');
 
-    // Backup
+    const memberData = docSnap.data();
+
+    // Backup deleted member to a different collection
     await addDoc(collection(db, 'team_members_deleted'), {
-      ...docSnap.data(),
-      dateDeleted: new Date(),
+      ...memberData,
+      dateDeleted: Timestamp.now(),
     });
 
-    // Delete
+    // Remove image from Supabase Storage if hosted there
+    if (memberData.image?.includes('/team-media/')) {
+      const filePath = memberData.image.split('/team-media/')[1];
+      const { error: storageError } = await supabase.storage.from('team-media').remove([filePath]);
+      if (storageError) {
+        console.warn('Failed to delete image from Supabase:', storageError.message);
+      }
+    }
+
+    // Delete member from Firestore
     await deleteDoc(memberRef);
+
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('DELETE Error:', error.message);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, updateProfile } from 'firebase/auth';
 import { 
   RiDashboardLine, 
   RiTeamLine, 
@@ -12,21 +12,19 @@ import {
   RiDeleteBinLine,
   RiLogoutBoxRLine,
   RiMenuLine,
-  RiBellLine,
   RiUserLine
 } from 'react-icons/ri';
 import { Poppins } from 'next/font/google';
 import AdminTeam from '@/components/AdminTeam';
 import AdminArchive from '@/components/AdminArchive'; 
 import AdminTrash from '@/components/AdminTrash';
+import AdminSettings from '@/components/AdminSettings';
 
-// Same font as login page
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '600', '700'],
 });
 
-// Theme colors from login page
 const themeColors = {
   primary: '#0c4000',
   secondary: '#1a8c00', 
@@ -44,38 +42,46 @@ export default function AdminDashboard() {
   const [activePage, setActivePage] = useState('dashboard');
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [statsData, setStatsData] = useState([]);
-
-
-  
-  // For the animated equalizer (similar to login page)
   const [equalizerHeights, setEqualizerHeights] = useState([]);
+  const [popularPages, setPopularPages] = useState([]);
+  const [displayName, setDisplayName] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+
 
   useEffect(() => {
-    // Initialize the equalizer
-    setEqualizerHeights([15, 20, 25, 18, 22]);
-    
-    // Animation interval
-    const animationInterval = setInterval(() => {
-      setEqualizerHeights(prevHeights => 
-        prevHeights.map(() => Math.floor(Math.random() * 15) + 10) // Random height between 10-25px
-      );
-    }, 800); // Update every 800ms
-    
-    return () => clearInterval(animationInterval);
+    const fetchAnalytics = async () => {
+      const res = await fetch('/api/admin/analytics');
+      const data = await res.json();
+      if (data.success) setPopularPages(data.pages);
+    };
+    fetchAnalytics();
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/admin/login');
-      } else {
-        setCurrentUser(user);
-        setLoading(false);
-      }
-    });
+    setEqualizerHeights([15, 20, 25, 18, 22]);
+    const animationInterval = setInterval(() => {
+      setEqualizerHeights(prevHeights => 
+        prevHeights.map(() => Math.floor(Math.random() * 15) + 10)
+      );
+    }, 800);
+    return () => clearInterval(animationInterval);
+  }, []);
 
-    return () => unsubscribe();
-  }, [router]);
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      router.push('/admin/login');
+    } else {
+      user.reload().then(() => {
+        setCurrentUser(auth.currentUser); // pull latest profile
+        setLoading(false);
+      });
+    }
+  });
+
+  return () => unsubscribe();
+}, [router]);
+
 
   const handleLogout = async () => {
     try {
@@ -86,24 +92,21 @@ export default function AdminDashboard() {
     }
   };
 
-  // Mock data for dashboard widgets
-useEffect(() => {
-  const fetchStats = async () => {
-    const res = await fetch('/api/admin/dashboard');
-    const json = await res.json();
-    if (json.success) {
-      const { team, archive } = json.stats;
-      setStatsData([
-        { title: 'Team Members', value: team.total, change: team.change, icon: <RiTeamLine size={24} /> },
-        { title: 'Archive Items', value: archive.total, change: archive.change, icon: <RiArchiveLine size={24} /> },
-      ]);
-    }
-  };
-  fetchStats();
-}, []);
+  useEffect(() => {
+    const fetchStats = async () => {
+      const res = await fetch('/api/admin/dashboard');
+      const json = await res.json();
+      if (json.success) {
+        const { team, archive } = json.stats;
+        setStatsData([
+          { title: 'Team Members', value: team.total, change: team.change, icon: <RiTeamLine size={24} /> },
+          { title: 'Archive Items', value: archive.total, change: archive.change, icon: <RiArchiveLine size={24} /> },
+        ]);
+      }
+    };
+    fetchStats();
+  }, []);
 
-
-  // Recent activities mock data
   const recentActivities = [
     { id: 1, user: 'John Doe', action: 'added a new team member', time: '2 hours ago' },
     { id: 3, user: 'Mark Johnson', action: 'updated site settings', time: 'Yesterday' },
@@ -112,24 +115,11 @@ useEffect(() => {
 
   if (loading) {
     return (
-      <div 
-        className={`flex min-h-screen items-center justify-center ${poppins.className}`}
-        style={{ 
-          background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.dark} 100%)`,
-        }}
-      >
+      <div className={`flex min-h-screen items-center justify-center ${poppins.className}`} style={{ background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.dark} 100%)` }}>
         <div className="flex flex-col items-center">
-          {/* Animated equalizer */}
           <div className="flex items-end justify-center space-x-1 mb-4 h-8">
             {[1,2,3,4,5].map((_, i) => (
-              <div 
-                key={i}
-                className="w-1 rounded-full bg-green-300/70 animate-pulse transition-all duration-300"
-                style={{ 
-                  height: `${Math.floor(Math.random() * 15) + 10}px`,
-                  animationDelay: `${i * 0.1}s`
-                }}
-              />
+              <div key={i} className="w-1 rounded-full bg-green-300/70 animate-pulse transition-all duration-300" style={{ height: `${Math.floor(Math.random() * 15) + 10}px`, animationDelay: `${i * 0.1}s` }} />
             ))}
           </div>
           <p className="text-white">Loading your dashboard...</p>
@@ -138,7 +128,6 @@ useEffect(() => {
     );
   }
 
-  // Navigation items
   const navItems = [
     { icon: <RiDashboardLine size={20} />, label: 'Dashboard', id: 'dashboard' },
     { icon: <RiArchiveLine size={20} />, label: 'Archive', id: 'archive' },
@@ -148,37 +137,24 @@ useEffect(() => {
   ];
 
   return (
-    <div 
-      className={`flex min-h-screen bg-gray-50 ${poppins.className}`}
-    >
-      {/* Sidebar */}
-      <aside 
-        className={`${sidebarOpen ? 'w-64' : 'w-20'} transition-all duration-300 flex flex-col`}
-        style={{ 
-          background: `linear-gradient(180deg, ${themeColors.primary} 0%, ${themeColors.dark} 100%)`,
-        }}
-      >
-        {/* Logo section */}
+    <div className={`flex min-h-screen bg-gray-50 ${poppins.className}`}>
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} transition-all duration-300 flex flex-col`} style={{ background: `linear-gradient(180deg, ${themeColors.primary} 0%, ${themeColors.dark} 100%)` }}>
         <div className={`p-6 flex ${sidebarOpen ? 'justify-between' : 'justify-center'} items-center border-b border-green-700/30`}>
           <div className={`flex items-center ${!sidebarOpen && 'justify-center w-full'}`}>
             <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border border-green-300/30">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-                <path d="M12 8v8"/>
-                <path d="M8 12h8"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                <path d="M12 8v8" />
+                <path d="M8 12h8" />
               </svg>
             </div>
             {sidebarOpen && <h2 className="ml-3 text-white font-semibold text-lg">Studio</h2>}
           </div>
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)} 
-            className="text-white hover:bg-white/10 p-1 rounded-md transition-colors"
-          >
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white hover:bg-white/10 p-1 rounded-md transition-colors">
             <RiMenuLine size={18} />
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 py-6">
           <ul className="space-y-1">
             {navItems.map((item) => (
@@ -187,25 +163,15 @@ useEffect(() => {
                   onClick={() => setActivePage(item.id)}
                   className={`w-full flex items-center ${sidebarOpen ? 'justify-start px-6' : 'justify-center'} py-3 hover:bg-white/10 transition-colors ${activePage === item.id ? 'bg-white/10 relative' : ''}`}
                 >
-                  {activePage === item.id && (
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 w-1 rounded-r"
-                      style={{ backgroundColor: themeColors.accent }}
-                    ></div>
-                  )}
+                  {activePage === item.id && <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r" style={{ backgroundColor: themeColors.accent }}></div>}
                   <span className="text-white">{item.icon}</span>
-                  {sidebarOpen && (
-                    <span className={`ml-3 text-white ${activePage === item.id ? 'font-medium' : ''}`}>
-                      {item.label}
-                    </span>
-                  )}
+                  {sidebarOpen && <span className={`ml-3 text-white ${activePage === item.id ? 'font-medium' : ''}`}>{item.label}</span>}
                 </button>
               </li>
             ))}
           </ul>
         </nav>
 
-        {/* User & Logout */}
         <div className={`p-4 border-t border-green-700/30 ${sidebarOpen ? 'px-6' : 'flex justify-center'}`}>
           {sidebarOpen ? (
             <div className="flex flex-col">
@@ -214,55 +180,64 @@ useEffect(() => {
                   <RiUserLine className="text-white" size={16} />
                 </div>
                 <div className="ml-3">
-                  <p className="text-white text-sm font-medium">Admin User</p>
+<p className="text-white text-sm font-medium">
+  {currentUser?.displayName || 'Admin User'}
+</p>
                   <p className="text-green-200/70 text-xs">{currentUser?.email}</p>
                 </div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-center w-full py-2 mt-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white text-sm"
-              >
-                <RiLogoutBoxRLine size={16} className="mr-2" />
-                Logout
+              <button onClick={handleLogout} className="flex items-center justify-center w-full py-2 mt-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white text-sm">
+                <RiLogoutBoxRLine size={16} className="mr-2" /> Logout
               </button>
             </div>
           ) : (
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white"
-              title="Logout"
-            >
+            <button onClick={handleLogout} className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white" title="Logout">
               <RiLogoutBoxRLine size={18} />
             </button>
           )}
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header 
-          className="h-16 border-b flex items-center justify-between px-6"
-          style={{ borderColor: '#e2e8f0' }}
+<header className="h-16 border-b flex items-center justify-between px-6" style={{ borderColor: '#e2e8f0' }}>
+  <h1 className="text-lg font-medium" style={{ color: themeColors.primary }}>
+    {navItems.find(item => item.id === activePage)?.label}
+  </h1>
+
+  {/* Profile dropdown */}
+  <div className="relative">
+    <button
+      onClick={() => setShowDropdown(prev => !prev)}
+      className="w-8 h-8 rounded-full flex items-center justify-center focus:outline-none"
+      style={{ backgroundColor: themeColors.light }}
+    >
+      <span className="text-sm font-medium" style={{ color: themeColors.primary }}>
+        {currentUser?.displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase() || 'A'}
+      </span>
+    </button>
+
+    {showDropdown && (
+      <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-10">
+        <button
+          onClick={() => {
+            setActivePage('settings');
+            setShowDropdown(false);
+          }}
+          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
         >
-          <h1 className="text-lg font-medium" style={{ color: themeColors.primary }}>
-            {navItems.find(item => item.id === activePage)?.label}
-          </h1>
-          <div className="flex items-center space-x-4">
-            <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
-              <RiBellLine size={20} className="text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
-            </button>
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: themeColors.light }}
-            >
-              <span className="text-sm font-medium" style={{ color: themeColors.primary }}>
-                {currentUser?.email?.[0].toUpperCase() || 'A'}
-              </span>
-            </div>
-          </div>
-        </header>
+          Settings
+        </button>
+        <button
+          onClick={handleLogout}
+          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+        >
+          Logout
+        </button>
+      </div>
+    )}
+  </div>
+</header>
+
 
         {/* Dashboard Content */}
         <main className="flex-1 p-6 overflow-auto">
@@ -362,24 +337,42 @@ useEffect(() => {
 ))
 }
 
+
                   </div>
                 </div>
+
+                {/* Popular Pages Analytics */}
+<div className="mt-10 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+  <h2 className="text-lg font-semibold mb-4" style={{ color: themeColors.primary }}>Popular Pages (Last 30 Days)</h2>
+  <ul className="space-y-2">
+    {popularPages.map((page, i) => (
+      <li key={i} className="flex justify-between text-sm border-b pb-2">
+        <span className="text-gray-700">{page.path}</span>
+        <span className="text-gray-500">{page.views} views</span>
+      </li>
+    ))}
+  </ul>
+</div>
+
               </div>
             </>
           )}
 
           {/* Placeholder pages for other nav items */}
 {activePage === 'team' && <AdminTeam />}
-{activePage === 'archive' && (
-  <AdminArchive modalOpen={archiveModalOpen} setModalOpen={setArchiveModalOpen} />
-)}
+{activePage === 'archive' && (<AdminArchive modalOpen={archiveModalOpen} setModalOpen={setArchiveModalOpen} />)}
 {activePage === 'trash' && <AdminTrash />}
+{activePage === 'settings' && <AdminSettings />}
+
+
 
 
 
 
         </main>
       </div>
+      
     </div>
+    
   );
 }
